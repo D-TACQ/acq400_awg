@@ -39,22 +39,64 @@ namespace acq400_awg
             sk = new TcpClient(uut, 4220+site);
             writer = new BinaryWriter(sk.GetStream());
             reader = new BinaryReader(sk.GetStream());
+            Console.WriteLine("01\n");
             model = GetKnob("MODEL");
+            Console.WriteLine("02");
+        }
+        static byte[] GetBytes(string str)
+        {
+            byte[] bytes = new byte[str.Length * sizeof(char)];
+            System.Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
+            return bytes;
         }
         public void SetKnob(string knob, string value)
         {
-            writer.Write(knob + "=" + value + "\n");
+            string cmd = knob + "=" + value + "\n";
+            foreach (byte b in cmd)
+            {
+                writer.Write(b);
+            }
+            
             Console.WriteLine(ReadString());
         }
         public string GetKnob(string knob)
         {
-            writer.Write(knob + "\n");
+            string cmd = knob + "\n";
+            foreach (byte b in cmd)
+            {
+                writer.Write(b);
+            }
             string rs = ReadString();
             Console.WriteLine(rs);
             return rs;
         }
     }
 
+    class FileBuffer
+    {
+        string fname;
+        byte[] raw;
+        int nbytes;
+        public FileBuffer(string _fname)
+        {
+            fname = _fname;
+     
+            using (FileStream fs = File.OpenRead(fname))
+            {
+                nbytes = (int)fs.Length;
+                using (BinaryReader binaryReader = new BinaryReader(fs))
+                {
+                    raw = binaryReader.ReadBytes((int)fs.Length);
+                }
+            }
+
+        }
+        public override string ToString()
+        {
+            return "FileBuffer: " + fname + " " + nbytes;
+        }
+
+    }
     class AWG_Controller
     {
         SiteClient s0;
@@ -65,22 +107,29 @@ namespace acq400_awg
         {
             Console.WriteLine("SetMaxLen:" + len);
         }
+
+    
+
+        IList<FileBuffer> fbs = new List<FileBuffer>();
         void OpenFiles(string [] fnames)
         {
-
+            foreach (string fn in fnames)
+            {
+                fbs.Add(new FileBuffer(fn));
+            }
         }
-        void RunAwg(string fn)
+        void RunAwg(FileBuffer fb)
         {
-
+            Console.WriteLine(uut + " load " + fb);
         }
         void RunLoop(int reps, string[] fnames)
         {
             OpenFiles(fnames);
 
             for (int ii = 0; ii < reps; ++ii)
-                for (int fn = 0; fn < fnames.Length; ++fn)
+                foreach (FileBuffer fp in fbs)
                 {
-                    Console.WriteLine(uut + " rep " + reps + " load " + fnames[fn]);
+                    
                 }
         }
         string uut;
