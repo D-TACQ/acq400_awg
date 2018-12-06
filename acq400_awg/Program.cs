@@ -39,9 +39,7 @@ namespace acq400_awg
             sk = new TcpClient(uut, 4220+site);
             writer = new BinaryWriter(sk.GetStream());
             reader = new BinaryReader(sk.GetStream());
-            Console.WriteLine("01\n");
             model = GetKnob("MODEL");
-            Console.WriteLine("02");
         }
         static byte[] GetBytes(string str)
         {
@@ -127,9 +125,9 @@ namespace acq400_awg
             OpenFiles(fnames);
 
             for (int ii = 0; ii < reps; ++ii)
-                foreach (FileBuffer fp in fbs)
+                foreach (FileBuffer fb in fbs)
                 {
-                    
+                    Console.WriteLine(fb);
                 }
         }
         string uut;
