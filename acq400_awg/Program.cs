@@ -50,6 +50,7 @@ namespace acq400_awg
         public void SetKnob(string knob, string value)
         {
             string cmd = knob + "=" + value + "\n";
+            //Console.WriteLine(cmd);
             foreach (byte b in cmd)
             {
                 writer.Write(b);
@@ -72,9 +73,9 @@ namespace acq400_awg
 
     class FileBuffer
     {
-        string fname;
-        byte[] raw;
-        int nbytes;
+        public string fname;
+        public byte[] raw;
+        public int nbytes;
         public FileBuffer(string _fname)
         {
             fname = _fname;
@@ -91,7 +92,7 @@ namespace acq400_awg
         }
         public override string ToString()
         {
-            return "FileBuffer: " + fname + " " + nbytes;
+            return "FileBuffer: " + fname + " " + nbytes + " " + raw.Length;
         }
 
     }
@@ -100,10 +101,12 @@ namespace acq400_awg
         SiteClient s0;
         SiteClient s1;
 
-     
+        int SAMPLE_SIZE = 16;
+
         void SetMaxLen(int len)
         {
             Console.WriteLine("SetMaxLen:" + len);
+            s1.SetKnob("playloop_maxlen", (len/SAMPLE_SIZE).ToString());
         }
 
     
@@ -119,6 +122,20 @@ namespace acq400_awg
         void RunAwg(FileBuffer fb)
         {
             Console.WriteLine(uut + " load " + fb);
+            SetMaxLen(fb.nbytes);
+            TcpClient sk = new TcpClient(uut, 54203);
+            BinaryWriter writer = new BinaryWriter(sk.GetStream());
+            writer.Write(fb.raw);
+            writer.Close();
+            sk.Close();
+            bool shot_complete = false;
+
+            while(!shot_complete)
+            {
+                System.Threading.Thread.Sleep(500);
+                shot_complete = s1.GetKnob("AWG:SHOT_COMPLETE").Split(' ')[1] == "1";
+            }
+            
         }
         void RunLoop(int reps, string[] fnames)
         {
@@ -128,11 +145,17 @@ namespace acq400_awg
                 foreach (FileBuffer fb in fbs)
                 {
                     Console.WriteLine(fb);
+                    RunAwg(fb);
                 }
         }
         string uut;
         AWG_Controller(string _uut)
         {
+            string ss = System.Environment.GetEnvironmentVariable("SAMPLE_SIZE");
+            if (ss != null)
+            {
+                SAMPLE_SIZE = Int32.Parse(ss);
+            }
             uut = _uut;
             s0 = new SiteClient(uut, 0);
             s1 = new SiteClient(uut, 1);
