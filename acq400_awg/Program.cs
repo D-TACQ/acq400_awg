@@ -109,7 +109,26 @@ namespace acq400_awg
             s1.SetKnob("playloop_maxlen", (len/SAMPLE_SIZE).ToString());
         }
 
-    
+        bool WaitFor(string knob, string value)
+        {
+            bool shot_complete = false;
+
+            while (!shot_complete)
+            {
+                System.Threading.Thread.Sleep(500);
+                shot_complete = s1.GetKnob(knob).Split(' ')[1] == value;
+            }
+            return true;
+        }
+        bool WaitShotComplete()
+        {
+            return WaitFor("AWG:SHOT_COMPLETE", "1");
+        }
+
+        bool WaitAwgNotActive()
+        {
+            return WaitFor("AWG:ACTIVE", "0");
+        }
 
         IList<FileBuffer> fbs = new List<FileBuffer>();
         void OpenFiles(string [] fnames)
@@ -119,23 +138,24 @@ namespace acq400_awg
                 fbs.Add(new FileBuffer(fn));
             }
         }
-        void RunAwg(FileBuffer fb)
+
+        void LoadAwg(FileBuffer fb)
         {
-            Console.WriteLine(uut + " load " + fb);
             SetMaxLen(fb.nbytes);
             TcpClient sk = new TcpClient(uut, 54203);
             BinaryWriter writer = new BinaryWriter(sk.GetStream());
             writer.Write(fb.raw);
             writer.Close();
             sk.Close();
-            bool shot_complete = false;
-
-            while(!shot_complete)
-            {
-                System.Threading.Thread.Sleep(500);
-                shot_complete = s1.GetKnob("AWG:SHOT_COMPLETE").Split(' ')[1] == "1";
-            }
-            
+            Console.WriteLine(uut + " wait2 ");
+        }
+        void RunAwg(FileBuffer fb)
+        {
+            WaitAwgNotActive();
+            Console.WriteLine(uut + " load " + fb);
+            LoadAwg(fb);
+            WaitShotComplete();
+            Console.WriteLine(uut + " done ");
         }
         void RunLoop(int reps, string[] fnames)
         {
@@ -144,7 +164,7 @@ namespace acq400_awg
             for (int ii = 0; ii < reps; ++ii)
                 foreach (FileBuffer fb in fbs)
                 {
-                    Console.WriteLine(fb);
+                    Console.WriteLine("\nrep:" + ii + " buffer:" + fb);
                     RunAwg(fb);
                 }
         }
