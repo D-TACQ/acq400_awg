@@ -101,12 +101,18 @@ namespace acq400_awg
         SiteClient s0;
         SiteClient s1;
 
+        int Shot;
+
         int SAMPLE_SIZE = 16;
 
-        void SetMaxLen(int len)
+       
+
+        int SetMaxLen(int len)
         {
             Console.WriteLine("SetMaxLen:" + len);
-            s1.SetKnob("playloop_maxlen", (len/SAMPLE_SIZE).ToString());
+            string max_len = (len / SAMPLE_SIZE).ToString();
+            s1.SetKnob("playloop_maxlen", max_len);
+            return Convert.ToInt32(max_len);
         }
 
         bool WaitFor(string knob, string value)
@@ -130,6 +136,21 @@ namespace acq400_awg
             return WaitFor("AWG:ACTIVE", "0");
         }
 
+        bool WaitLoadComplete(int loadlen)
+        {
+            bool shot_complete = false;
+            Console.WriteLine(uut + " loadlen " + loadlen);
+
+            while (!shot_complete)
+            {
+                System.Threading.Thread.Sleep(500);
+                int pll = Convert.ToInt32(s1.GetKnob("playloop_length").Split(' ')[0]);
+                Console.WriteLine(uut + " pll " + pll);
+                shot_complete = pll >= loadlen;
+            }
+            return true;
+        }
+
         IList<FileBuffer> fbs = new List<FileBuffer>();
         void OpenFiles(string [] fnames)
         {
@@ -141,26 +162,30 @@ namespace acq400_awg
 
         void LoadAwg(FileBuffer fb)
         {
-            SetMaxLen(fb.nbytes);
+            int max_len = SetMaxLen(fb.nbytes);
             TcpClient sk = new TcpClient(uut, 54203);
             BinaryWriter writer = new BinaryWriter(sk.GetStream());
             writer.Write(fb.raw);
             writer.Close();
             sk.Close();
+            WaitLoadComplete(max_len);
             Console.WriteLine(uut + " wait2 ");
         }
         void RunAwg(FileBuffer fb)
         {
             WaitAwgNotActive();
-            Console.WriteLine(uut + " load " + fb);
+            Console.WriteLine(uut + " shot:" + Shot + " load " + fb + s1.GetKnob("shot"));
             LoadAwg(fb);
             WaitShotComplete();
-            Console.WriteLine(uut + " done ");
+            Console.WriteLine(uut + " shot:" + Shot + " done ");
+            ++Shot;
         }
         void RunLoop(int reps, string[] fnames)
         {
             OpenFiles(fnames);
 
+            s1.SetKnob("shot", "0");
+            
             for (int ii = 0; ii < reps; ++ii)
                 foreach (FileBuffer fb in fbs)
                 {
@@ -179,6 +204,7 @@ namespace acq400_awg
             uut = _uut;
             s0 = new SiteClient(uut, 0);
             s1 = new SiteClient(uut, 1);
+            Shot = 0;
         }
         static void Main(string[] args)
         {
