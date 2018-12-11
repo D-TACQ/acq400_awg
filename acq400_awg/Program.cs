@@ -109,7 +109,6 @@ namespace acq400_awg
 
         int SetMaxLen(int len)
         {
-            Console.WriteLine("SetMaxLen:" + len);
             string max_len = (len / SAMPLE_SIZE).ToString();
             s1.SetKnob("playloop_maxlen", max_len);
             return Convert.ToInt32(max_len);
@@ -139,13 +138,11 @@ namespace acq400_awg
         bool WaitLoadComplete(int loadlen)
         {
             bool shot_complete = false;
-            Console.WriteLine(uut + " loadlen " + loadlen);
 
             while (!shot_complete)
             {
                 System.Threading.Thread.Sleep(500);
                 int pll = Convert.ToInt32(s1.GetKnob("playloop_length").Split(' ')[0]);
-                Console.WriteLine(uut + " pll " + pll);
                 shot_complete = pll >= loadlen;
             }
             return true;
