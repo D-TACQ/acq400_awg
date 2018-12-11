@@ -13,7 +13,7 @@ namespace acq400_awg
         BinaryWriter writer;
         BinaryReader reader;
         string model;
-
+        public static bool Trace = false;
         string ReadString()
         {
             string response = "";
@@ -47,16 +47,24 @@ namespace acq400_awg
             System.Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
             return bytes;
         }
-        public void SetKnob(string knob, string value)
+        public string SetKnob(string knob, string value)
         {
             string cmd = knob + "=" + value + "\n";
-            //Console.WriteLine(cmd);
+            if (Trace)
+            {
+                Console.WriteLine(cmd);
+            }
+
             foreach (byte b in cmd)
             {
                 writer.Write(b);
             }
-            
-            Console.WriteLine(ReadString());
+            string rs = ReadString();
+            if (Trace)
+            {
+                Console.WriteLine(rs);
+            }
+            return rs;
         }
         public string GetKnob(string knob)
         {
@@ -66,7 +74,10 @@ namespace acq400_awg
                 writer.Write(b);
             }
             string rs = ReadString();
-            Console.WriteLine(rs);
+            if (Trace)
+            {
+                Console.WriteLine(rs);
+            }
             return rs;
         }
     }
@@ -104,7 +115,7 @@ namespace acq400_awg
         int Shot;
 
         int SAMPLE_SIZE = 16;
-
+        
        
 
         int SetMaxLen(int len)
@@ -166,7 +177,6 @@ namespace acq400_awg
             writer.Close();
             sk.Close();
             WaitLoadComplete(max_len);
-            Console.WriteLine(uut + " wait2 ");
         }
         void RunAwg(FileBuffer fb)
         {
@@ -212,8 +222,27 @@ namespace acq400_awg
             } 
             else
             {
-                AWG_Controller ctrl = new AWG_Controller(args[0]);
-                ctrl.RunLoop(Convert.ToInt32(args[1]), new List<string>(args).GetRange(2, args.Length-2).ToArray());
+                int ii = 0;
+                for (ii = 0; ii < args.Length; ++ii)
+                {
+                    if (args[ii].StartsWith("--"))
+                    {
+                        string [] key_val = args[ii].Split('=');
+                        if (String.Compare(key_val[0], "--trace") == 0)
+                        {
+                            SiteClient.Trace = Int32.Parse(key_val[1]) != 0;
+                        }
+                    } else
+                    {
+                        break;
+                    }
+                }
+                string uut = args[ii];
+                string reps = args[ii + 1];
+                int ii1 = ii + 2;
+               
+                AWG_Controller ctrl = new AWG_Controller(uut);
+                ctrl.RunLoop(Convert.ToInt32(reps), new List<string>(args).GetRange(ii1, args.Length-ii1).ToArray());
             }
         }
     }
