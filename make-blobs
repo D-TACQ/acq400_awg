@@ -1,0 +1,14 @@
+# bash
+# creates blob files
+# w4.dat is 1MB, or 64k Samples at 16 bytes/sample
+
+
+make_blob() {
+    ( for b in $(seq 1 $1); do cat w4.dat; done) > $2
+}
+
+
+make_blob 16 	w-16-1M.dat
+make_blob 256 	w-16-16M.dat
+make_blob 512   w-16-32M.dat
+
