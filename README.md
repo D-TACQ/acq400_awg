@@ -24,3 +24,8 @@ acq1001_301 rep 10 load aa
 acq1001_301 rep 10 load bb
 acq1001_301 rep 10 load aa
 acq1001_301 rep 10 load bb
+
+
+
+USE bash script ./make-blobs to create large size files
+
