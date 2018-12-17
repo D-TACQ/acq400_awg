@@ -115,8 +115,10 @@ namespace acq400_awg
         int Shot;
 
         int SAMPLE_SIZE = 16;
-        
-       
+        public static int awg_port = 54203;
+        public static bool auto_soft_trigger = false;
+
+
 
         int SetMaxLen(int len)
         {
@@ -128,33 +130,44 @@ namespace acq400_awg
         bool WaitFor(string knob, string value)
         {
             bool shot_complete = false;
+            int poll_count = 0;
 
             while (!shot_complete)
             {
                 System.Threading.Thread.Sleep(500);
-                shot_complete = s1.GetKnob(knob).Split(' ')[1] == value;
+                shot_complete = s1.GetKnob(knob) == value;
+                if (((++poll_count)&0xf) == 0)
+                {
+                    Console.WriteLine("polling:" + knob + " for " + value);
+                }
             }
             return true;
         }
         bool WaitShotComplete()
         {
-            return WaitFor("AWG:SHOT_COMPLETE", "1");
+            return WaitFor("task_active", "0");
         }
 
         bool WaitAwgNotActive()
         {
-            return WaitFor("AWG:ACTIVE", "0");
+            return WaitFor("task_active", "0");
         }
 
         bool WaitLoadComplete(int loadlen)
         {
-            bool shot_complete = false;
+            bool load_complete = false;
+            int poll_count = 0;
+            string knob = "playloop_length";
 
-            while (!shot_complete)
+            while (!load_complete)
             {
+                if (((++poll_count) & 0xf) == 0)
+                {
+                    Console.WriteLine("polling:" + knob + " for " + loadlen);
+                }
                 System.Threading.Thread.Sleep(500);
-                int pll = Convert.ToInt32(s1.GetKnob("playloop_length").Split(' ')[0]);
-                shot_complete = pll >= loadlen;
+                int pll = Convert.ToInt32(s1.GetKnob(knob).Split(' ')[0]);
+                load_complete = pll >= loadlen;
             }
             return true;
         }
@@ -171,18 +184,34 @@ namespace acq400_awg
         void LoadAwg(FileBuffer fb)
         {
             int max_len = SetMaxLen(fb.nbytes);
-            TcpClient sk = new TcpClient(uut, 54203);
+            TcpClient sk;
+            Console.WriteLine("awg_port:" + awg_port);
+            if (awg_port == 6666)
+            {
+                sk = new TcpClient("localhost", awg_port);
+            }
+            else
+            {
+                sk = new TcpClient(uut, awg_port);
+            }
+                      
             BinaryWriter writer = new BinaryWriter(sk.GetStream());
             writer.Write(fb.raw);
+            sk.Client.Shutdown(SocketShutdown.Send);
+            WaitLoadComplete(max_len);
+            sk.Client.Shutdown(SocketShutdown.Both);
             writer.Close();
             sk.Close();
-            WaitLoadComplete(max_len);
         }
         void RunAwg(FileBuffer fb)
         {
             WaitAwgNotActive();
             Console.WriteLine(uut + " shot:" + Shot + " load " + fb + s1.GetKnob("shot"));
             LoadAwg(fb);
+            if (auto_soft_trigger)
+            {
+                s0.SetKnob("soft_trigger", "1");
+            }
             WaitShotComplete();
             Console.WriteLine(uut + " shot:" + Shot + " done ");
             ++Shot;
@@ -228,10 +257,33 @@ namespace acq400_awg
                     if (args[ii].StartsWith("--"))
                     {
                         string [] key_val = args[ii].Split('=');
-                        if (String.Compare(key_val[0], "--trace") == 0)
+                        if (String.Compare(key_val[0], "") == 0)
                         {
                             SiteClient.Trace = Int32.Parse(key_val[1]) != 0;
+                        } else if (String.Compare(key_val[0], "--awg_port") == 0)
+                        {
+                            AWG_Controller.awg_port = Int32.Parse(key_val[1]);
+                            Console.WriteLine("awg_port set:" + AWG_Controller.awg_port);
                         }
+                        else if (String.Compare(key_val[0], "--auto_soft_trigger") == 0)
+                        {
+                            AWG_Controller.auto_soft_trigger = Int32.Parse(key_val[1]) != 0;
+                            Console.WriteLine("auto_soft_trigger set:" + AWG_Controller.auto_soft_trigger);
+                        }
+                        else if (String.Compare(key_val[0], "--overlap_load") == 0)
+                        {
+                            if (Int32.Parse(key_val[1]) == 0)
+                            {
+                                AWG_Controller.awg_port = 54201;
+                                Console.WriteLine("awg_port set:" + AWG_Controller.awg_port);
+                            }                            
+                        }
+                        else
+                        {
+                            Console.WriteLine("ERROR unknown switch:" + args[ii]);
+                            //System.Environment.Exit(1);
+                        }
+
                     } else
                     {
                         break;
