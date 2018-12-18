@@ -197,15 +197,18 @@ namespace acq400_awg
                       
             BinaryWriter writer = new BinaryWriter(sk.GetStream());
             writer.Write(fb.raw);
+            sk.LingerState = new LingerOption(true, 0);
             sk.Client.Shutdown(SocketShutdown.Send);
             WaitLoadComplete(max_len);
             sk.Client.Shutdown(SocketShutdown.Both);
+            sk.Client.Disconnect(true);
             writer.Close();
             sk.Close();
         }
         void RunAwg(FileBuffer fb)
         {
             WaitAwgNotActive();
+            s1.SetKnob("playloop_length", "0 0");
             Console.WriteLine(uut + " shot:" + Shot + " load " + fb + s1.GetKnob("shot"));
             LoadAwg(fb);
             if (auto_soft_trigger)
