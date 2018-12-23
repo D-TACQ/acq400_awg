@@ -28,4 +28,9 @@ acq1001_301 rep 10 load bb
 
 
 USE bash script ./make-blobs to create large size files
+On windows, use git-bash
 
+## BETTER .. create 512MB data file: scott1M-512.dat
+./bloat scott1M.dat 512
+## create ramp1M-512.dat
+./bload ramp1M.dat 512

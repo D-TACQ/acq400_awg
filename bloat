@@ -1,0 +1,12 @@
+SRC=$1
+NB=$2
+
+echo ${SRC%%*.}
+OUTFILE=${SRC%.*}-$NB.dat
+echo $OUTFILE
+
+(
+for ii in $(seq $NB); do
+	cat $SRC
+done
+) > $OUTFILE
